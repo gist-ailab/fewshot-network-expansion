@@ -1,7 +1,7 @@
 _BASE_: "../../Base-RCNN-FPN.yaml"
 
 MODEL:
-  WEIGHTS: "/data/FSCE/checkpoints/PASCAL_VOC/split1/model_reset_surgery.pth"
+  WEIGHTS: "/data/sung/checkpoint/few_shot/voc/split1/base_model/model_reset_surgery.pth"
   MASK_ON: False
   RESNETS:
     DEPTH: 101
@@ -21,7 +21,6 @@ MODEL:
     OUTPUT_LAYER: "CosineSimOutputLayers"
     FREEZE_FEAT: False
     BATCH_SIZE_PER_IMAGE: 256
-    # SCORE_THRESH_TEST: 0.0
 
   ROI_BOX_HEAD:
     CONTRASTIVE_BRANCH:
@@ -55,6 +54,8 @@ SOLVER:
 TEST:
   AUG:
     ENABLED: True
-  EVAL_PERIOD: 700
+  EVAL_PERIOD: 1000
 
-OUTPUT_DIR: "checkpoints/voc/10shot_CL_IoU"
+DATASET: "VOC1"
+METHOD: "FSCE"
+OUTPUT_DIR: "checkpoints/voc1/10shot_CL_IoU"

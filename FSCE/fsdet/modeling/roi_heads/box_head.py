@@ -5,7 +5,7 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
-from fsdet.layers import Conv2d, ShapeSpec, get_norm
+from detectron2.layers import Conv2d, ShapeSpec, get_norm
 from fsdet.utils.registry import Registry
 from fsdet.modeling.backbone.resnet import BasicBlock, BottleneckBlock
 

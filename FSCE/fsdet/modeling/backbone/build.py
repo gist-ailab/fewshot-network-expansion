@@ -1,5 +1,5 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
-from fsdet.layers import ShapeSpec
+from detectron2.layers import ShapeSpec
 from fsdet.utils.registry import Registry
 
 from .backbone import Backbone

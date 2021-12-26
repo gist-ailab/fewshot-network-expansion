@@ -12,6 +12,8 @@ from ..postprocessing import detector_postprocess
 from ..proposal_generator import build_proposal_generator
 from ..roi_heads import build_roi_heads
 from .build import META_ARCH_REGISTRY
+from aux_layers.load_network import load_additional_backbone
+from aux_layers.proposals import merge_proposals
 
 from fsdet.utils.events import get_event_storage
 from fsdet.utils.visualizer import Visualizer
@@ -32,82 +34,94 @@ class GeneralizedRCNN(nn.Module):
 
     def __init__(self, cfg):
         super().__init__()
-        # fmt on #
-        self.input_format  = cfg.INPUT.FORMAT
-        self.vis_period    = cfg.INPUT.VIS_PERIOD
-        self.moco          = cfg.MODEL.MOCO.ENABLED
-        # fmt off #
-
+        self.cfg = cfg
+        self.iter = 0
+        
         self.device = torch.device(cfg.MODEL.DEVICE)
-
         self.backbone = build_backbone(cfg)
-        self.proposal_generator = build_proposal_generator(cfg, self.backbone.output_shape())
-        self.roi_heads = build_roi_heads(cfg, self.backbone.output_shape())  # specify roi_heads name in yaml
-        if self.moco:
-            if self.roi_heads.__class__ == 'MoCoROIHeadsV1':
-                self.roi_heads._moco_encoder_init(cfg)
-
-            elif self.roi_heads.__class__ == 'MoCoROIHeadsV3':
-                self.backbone_k = build_backbone(cfg)
-                self.proposal_generator_k = build_proposal_generator(cfg, self.backbone_k.output_shape())
-                self.roi_heads_k = build_roi_heads(cfg, self.backbone_k.output_shape())
-
-                self.roi_heads._moco_encoder_init(cfg,
-                    self.backbone_k, self.proposal_generator_k, self.roi_heads_k)
-        else:
-            assert 'MoCo' not in cfg.MODEL.ROI_HEADS.NAME
+        self.proposal_generator = build_proposal_generator(
+            cfg, self.backbone.output_shape()
+        )
+        self.roi_heads = build_roi_heads(cfg, self.backbone.output_shape())
 
         assert len(cfg.MODEL.PIXEL_MEAN) == len(cfg.MODEL.PIXEL_STD)
         num_channels = len(cfg.MODEL.PIXEL_MEAN)
-        pixel_mean = torch.Tensor(cfg.MODEL.PIXEL_MEAN).to(self.device).view(num_channels, 1, 1)
-        pixel_std = torch.Tensor(cfg.MODEL.PIXEL_STD).to(self.device).view(num_channels, 1, 1)
+        pixel_mean = (
+            torch.Tensor(cfg.MODEL.PIXEL_MEAN)
+            .to(self.device)
+            .view(num_channels, 1, 1)
+        )
+        pixel_std = (
+            torch.Tensor(cfg.MODEL.PIXEL_STD)
+            .to(self.device)
+            .view(num_channels, 1, 1)
+        )
         self.normalizer = lambda x: (x - pixel_mean) / pixel_std
-
-        self.to(self.device)
-
-        # s1 = 0
-        # s2 = 0
-        # for model in [self.backbone.fpn_lateral2, self.backbone.fpn_lateral3, self.backbone.fpn_lateral4, self.backbone.fpn_lateral5]:
-        #     s1 += sum(p.numel() for p in model.parameters())
-        # for model in [self.backbone.fpn_output2, self.backbone.fpn_output3, self.backbone.fpn_output4, self.backbone.fpn_output5]:
-        #     s2 += sum(p.numel() for p in model.parameters())
-        # print('FPN',s1, s2)
 
         if cfg.MODEL.BACKBONE.FREEZE:
             for p in self.backbone.parameters():
                 p.requires_grad = False
-            print('froze backbone parameters')
-
-        if cfg.MODEL.BACKBONE.FREEZE_P5:
-            for connection in [self.backbone.fpn_lateral5, self.backbone.fpn_output5]:
-                for p in connection.parameters():
-                    p.requires_grad = False
-            print('frozen P5 in FPN')
-
+            print("froze backbone parameters")
 
         if cfg.MODEL.PROPOSAL_GENERATOR.FREEZE:
             for p in self.proposal_generator.parameters():
                 p.requires_grad = False
-            print('froze proposal generator parameters')
+            print("froze proposal generator parameters")
 
         if cfg.MODEL.ROI_HEADS.FREEZE_FEAT:
             for p in self.roi_heads.box_head.parameters():
                 p.requires_grad = False
-            print('froze roi_box_head parameters')
+            print("froze roi_box_head parameters")
+            
+        # Addon Networks
+        if self.cfg.MERGE.EXPAND:
+            self.load_backbone()
+            self.load_proposal()
 
-            if cfg.MODEL.ROI_HEADS.UNFREEZE_FC2:
-                for p in self.roi_heads.box_head.fc2.parameters():
-                    p.requires_grad = True
-                print('unfreeze fc2 in roi head')
+        self.to(self.device)
 
-            # we do not ever need to use this in our works.
-            if cfg.MODEL.ROI_HEADS.UNFREEZE_FC1:
-                for p in self.roi_heads.box_head.fc1.parameters():
-                    p.requires_grad = True
-                print('unfreeze fc1 in roi head')
-        print('-------- Using Roi Head: {}---------\n'.format(cfg.MODEL.ROI_HEADS.NAME))
-
-
+    def load_backbone(self):
+        self.backbone_size = {}
+        self.backbone_size['base'] = self.backbone.output_shape()
+        
+        # Novel samples' Backbone
+        self.backbone_few, self.multiplier = load_additional_backbone(self.cfg)
+        
+        # Unfreeze Backbone
+        for p in self.backbone_few.parameters():
+            p.requires_grad = True
+        
+        self.backbone_size['few'] = self.backbone_few.output_shape()
+    
+    
+    def load_proposal(self):
+        if ('base' in self.cfg.MERGE.PROPOSAL_LIST) and ('novel' in self.cfg.MERGE.PROPOSAL_LIST):
+            del self.proposal_generator
+            
+            cfg_copy = self.cfg.clone()
+            cfg_copy.MODEL.PROPOSAL_GENERATOR.NAME = "Merge_RPN"
+            self.proposal_generator = None
+            self.proposal_generator_base = build_proposal_generator(cfg_copy, self.backbone.output_shape())
+            self.proposal_generator_novel = build_proposal_generator(cfg_copy, self.backbone.output_shape())
+                    
+            if self.cfg.MODEL.PROPOSAL_GENERATOR.FREEZE:
+                for p in self.proposal_generator_base.parameters():
+                    p.requires_grad = False
+                print("froze proposal generator parameters")
+                
+            for p in self.proposal_generator_novel.parameters():
+                p.requires_grad = True
+            
+        
+        elif 'novel' in self.cfg.MERGE.PROPOSAL_LIST:
+            # Unfreeze Proposal Generator for Novel sets
+            for p in self.proposal_generator.parameters():
+                p.requires_grad = True
+            
+        else:
+            raise('Select Proper Proposal Types')
+        
+        
     def forward(self, batched_inputs):
         """
         Args:
@@ -134,75 +148,93 @@ class GeneralizedRCNN(nn.Module):
         if not self.training:
             return self.inference(batched_inputs)
 
-        # backbone FPN
         images = self.preprocess_image(batched_inputs)
-        features = self.backbone(images.tensor)  # List of L, FPN features
-
-        # RPN
         if "instances" in batched_inputs[0]:
-            gt_instances = [x["instances"].to(self.device) for x in batched_inputs]  # List of N
+            gt_instances = [
+                x["instances"].to(self.device) for x in batched_inputs
+            ]
+        elif "targets" in batched_inputs[0]:
+            log_first_n(
+                logging.WARN,
+                "'targets' in the model inputs is now renamed to 'instances'!",
+                n=10,
+            )
+            gt_instances = [
+                x["targets"].to(self.device) for x in batched_inputs
+            ]
         else:
             gt_instances = None
 
-        if self.proposal_generator:
-            proposals, proposal_losses = self.proposal_generator(images, features, gt_instances)
-            # proposals is the output of find_top_rpn_proposals(), i.e., post_nms_top_K
+
+        # Backbone Forward
+        if self.cfg.MERGE.EXPAND:
+            features = {}
+            features_b = self.backbone(images.tensor)
+            features_n = self.backbone_few(images.tensor)
+            
+            for key in features_b.keys():
+                features[key] = (features_b[key] + features_n[key]) / 2
+            
+            # Backbone Distillation
+            aux_loss = []            
+            for key in ['p2', 'p3', 'p4', 'p5']:
+                aux_loss.append(torch.mean(torch.abs(features_b[key] - features_n[key])))
+            aux_loss = torch.mean(torch.stack(aux_loss))
+            distill_losses = {'distill_loss': aux_loss}
+            
+        else:
+            features_b, features_n = None, None
+            features = self.backbone(images.tensor)
+
+        # RPN forward
+        if self.proposal_generator or self.proposal_generator_base or self.proposal_generator_novel:
+            if self.cfg.MERGE.EXPAND:
+                if ('base' in self.cfg.MERGE.PROPOSAL_LIST) and ('novel' in self.cfg.MERGE.PROPOSAL_LIST):
+                    base_anchors, base_objectness, base_deltas = self.proposal_generator_base(images, features_b, gt_instances)
+                    novel_anchors, novel_objectness, novel_deltas = self.proposal_generator_novel(images, features, gt_instances)
+                    proposals, proposal_losses = merge_proposals(self.proposal_generator_base, images, gt_instances, [base_anchors, novel_anchors], [base_objectness, novel_objectness], [base_deltas, novel_deltas], train=True)
+                elif 'novel' in self.cfg.MERGE.PROPOSAL_LIST:
+                    proposals, proposal_losses = self.proposal_generator(images, features, gt_instances)
+                
+                else:
+                    raise('Select Proper Proposal Types')
+                
+            else:
+                proposals, proposal_losses = self.proposal_generator(images, features, gt_instances)
+        
         else:
             assert "proposals" in batched_inputs[0]
-            proposals = [x["proposals"].to(self.device) for x in batched_inputs]
+            proposals = [
+                x["proposals"].to(self.device) for x in batched_inputs
+            ]
             proposal_losses = {}
 
-        # tensorboard visualize, visualize top-20 RPN proposals with largest objectness
-        if self.vis_period > 0:
-            storage = get_event_storage()
-            if storage.iter % self.vis_period == 0:
-                self.visualize_training(batched_inputs, proposals)
 
-        if self.moco and self.roi_heads.__class__ == 'MoCoROIHeadsV2':
-            self.roi_heads.gt_instances = gt_instances
-        # RoI
-        # ROI inputs are post_nms_top_k proposals.
-        # detector_losses includes Contrast Loss, 和业务层的 cls loss, and reg loss
-        _, detector_losses = self.roi_heads(images, features, proposals, gt_instances)
+        # RoI Heads
+        _, detector_losses = self.roi_heads(
+            images, features, proposals, gt_instances
+        )
 
+        # Loss
         losses = {}
         losses.update(detector_losses)
         losses.update(proposal_losses)
+        
+        
+        # Distillation Loss
+        if self.cfg.MERGE.EXPAND:
+            losses.update(distill_losses)
+            
+            for key in losses.keys():
+                if 'distill' in key:
+                    losses[key] = losses[key] * max(1e-6, (1 - (1 - 1e-6) * self.iter / self.cfg.SOLVER.WARMUP_ITERS))
+                else:
+                    losses[key] = losses[key] * min(1, (1e-6 + (1 - 1e-6) * self.iter / self.cfg.SOLVER.WARMUP_ITERS))
         return losses
 
-    def visualize_training(self, batched_inputs, proposals):
-        """
-        A function used to visualize images and proposals. It shows ground truth
-        bounding boxes on the original image and up to 20 top-scoring predicted
-        object proposals on the original image. Users can implement different
-        visualization functions for different models.
-        Args:
-            batched_inputs (list): a list that contains input to the model.
-            proposals (list): a list that contains predicted proposals. Both
-                batched_inputs and proposals should have the same length.
-        """
-        storage = get_event_storage()
-        max_vis_prop = 20
-
-        for input, prop in zip(batched_inputs, proposals):
-            img = input["image"]
-            img = convert_image_to_rgb(img.permute(1, 2, 0), self.input_format)
-            v_gt = Visualizer(img, None)
-            v_gt = v_gt.overlay_instances(boxes=input["instances"].gt_boxes)
-            anno_img = v_gt.get_image()
-            box_size = min(len(prop.proposal_boxes), max_vis_prop)
-            v_pred = Visualizer(img, None)
-            v_pred = v_pred.overlay_instances(
-                boxes=prop.proposal_boxes[0:box_size].tensor.cpu().numpy()
-            )
-            prop_img = v_pred.get_image()
-            vis_img = np.concatenate((anno_img, prop_img), axis=1)
-            vis_img = vis_img.transpose(2, 0, 1)
-            vis_name = "Left: GT bounding boxes;  Right: Predicted proposals"
-            storage.put_image(vis_name, vis_img)
-            break  # only visualize one image in a batch
-
-    def inference(self, batched_inputs, detected_instances=None, do_postprocess=True):
+    def inference(
+        self, batched_inputs, detected_instances=None, do_postprocess=True
+    ):
         """
         Run inference on the given inputs.
 
@@ -222,19 +254,49 @@ class GeneralizedRCNN(nn.Module):
         assert not self.training
 
         images = self.preprocess_image(batched_inputs)
-        features = self.backbone(images.tensor)
-
+        
+        # Backbone Forward
+        if self.cfg.MERGE.EXPAND:
+            features = {}
+            features_b = self.backbone(images.tensor)
+            features_n = self.backbone_few(images.tensor)
+            
+            for key in features_b.keys():
+                features[key] = (features_b[key] + features_n[key]) / 2
+            
+        else:
+            features_b, features_n = None, None
+            features = self.backbone(images.tensor)
+            
         if detected_instances is None:
-            if self.proposal_generator:
-                proposals, _ = self.proposal_generator(images, features, None)
+            # RPN forward
+            if self.proposal_generator or self.proposal_generator_base or self.proposal_generator_novel:
+                if self.cfg.MERGE.EXPAND:
+                    if ('base' in self.cfg.MERGE.PROPOSAL_LIST) and ('novel' in self.cfg.MERGE.PROPOSAL_LIST):
+                        base_anchors, base_objectness, base_deltas = self.proposal_generator_base(images, features_b, gt_instances=None)
+                        novel_anchors, novel_objectness, novel_deltas = self.proposal_generator_novel(images, features, gt_instances=None)
+                        proposals, _ = merge_proposals(self.proposal_generator_base, images, None, [base_anchors, novel_anchors], [base_objectness, novel_objectness], [base_deltas, novel_deltas], train=False)
+                    elif 'novel' in self.cfg.MERGE.PROPOSAL_LIST:
+                        proposals, _ = self.proposal_generator(images, features, gt_instances=None)
+                    
+                    else:
+                        raise('Select Proper Proposal Types')
+                else:
+                    proposals, _ = self.proposal_generator(images, features, gt_instances=None)
+                    
             else:
                 assert "proposals" in batched_inputs[0]
                 proposals = [x["proposals"].to(self.device) for x in batched_inputs]
 
             results, _ = self.roi_heads(images, features, proposals, None)
+            
         else:
-            detected_instances = [x.to(self.device) for x in detected_instances]
-            results = self.roi_heads.forward_with_given_boxes(features, detected_instances)
+            detected_instances = [
+                x.to(self.device) for x in detected_instances
+            ]
+            results = self.roi_heads.forward_with_given_boxes(
+                features, detected_instances
+            )
 
         if do_postprocess:
             processed_results = []
@@ -255,7 +317,9 @@ class GeneralizedRCNN(nn.Module):
         """
         images = [x["image"].to(self.device) for x in batched_inputs]
         images = [self.normalizer(x) for x in images]
-        images = ImageList.from_tensors(images, self.backbone.size_divisibility)
+        images = ImageList.from_tensors(
+            images, self.backbone.size_divisibility
+        )
         return images
 
 

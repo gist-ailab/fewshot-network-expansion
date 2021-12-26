@@ -276,12 +276,12 @@ class GeneralizedRCNN(nn.Module):
                     
                     else:
                         raise('Select Proper Proposal Types')
+                else:
+                    proposals, _ = self.proposal_generator(images, features, gt_instances=None)
                     
             else:
                 assert "proposals" in batched_inputs[0]
-                proposals = [
-                    x["proposals"].to(self.device) for x in batched_inputs
-                ]
+                proposals = [x["proposals"].to(self.device) for x in batched_inputs]
 
             results, _ = self.roi_heads(images, features, proposals, None)
             

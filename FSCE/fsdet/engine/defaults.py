@@ -19,7 +19,7 @@ from fvcore.nn.precise_bn import get_bn_modules
 from torch.nn.parallel import DistributedDataParallel
 
 import fsdet.data.transforms as T
-from fsdet.checkpoint import DetectionCheckpointer
+from detectron2.checkpoint import DetectionCheckpointer
 from fsdet.data import (
     MetadataCatalog,
     build_detection_test_loader,
@@ -39,6 +39,7 @@ from fsdet.utils.env import seed_all_rng
 from fsdet.utils.events import CommonMetricPrinter, JSONWriter, TensorboardXWriter
 from fsdet.utils.logger import setup_logger
 
+from aux_layers import hook
 from . import hooks
 from .train_loop import SimpleTrainer
 
@@ -76,7 +77,9 @@ def default_argument_parser():
                         help="starting iteration for evaluation")
     parser.add_argument("--end-iter", type=int, default=-1,
                         help="ending iteration for evaluation")
-    parser.add_argument("--num-gpus", type=int, default=1,
+    parser.add_argument("--gpus", type=str, default='0,1',
+                        help="number of gpus *per machine*")
+    parser.add_argument("--exp_name", type=str, default='fsce',
                         help="number of gpus *per machine*")
     parser.add_argument("--num-machines", type=int, default=1)
     parser.add_argument(
@@ -89,7 +92,8 @@ def default_argument_parser():
     # PyTorch still may leave orphan processes in multi-gpu training.
     # Therefore we use a deterministic way to obtain port,
     # so that users are aware of orphan processes by seeing the port occupied.
-    port = 2 ** 15 + 2 ** 14 + hash(os.getuid()) % 2 ** 14
+    import random
+    port = random.randint(10, 10000)
     parser.add_argument("--dist-url", default="tcp://127.0.0.1:{}".format(port))
     parser.add_argument(
         "opts",
@@ -121,9 +125,6 @@ def default_setup(cfg, args):
     logger = setup_logger(output_dir, distributed_rank=rank)
 
     logger.info("Rank of current process: {}. World size: {}".format(rank, comm.get_world_size()))
-    if not cfg.MUTE_HEADER:
-        logger.info("Environment info:\n" + collect_env_info())
-
     logger.info("Command line arguments: " + str(args))
     if hasattr(args, "config_file"):
         logger.info(
@@ -132,8 +133,6 @@ def default_setup(cfg, args):
             )
         )
 
-    if not cfg.MUTE_HEADER:
-        logger.info("Running with full config:\n{}".format(cfg))
     if comm.is_main_process() and output_dir:
         # Note: some of our scripts may expect the existence of
         # config.yaml in output directory
@@ -272,7 +271,7 @@ class DefaultTrainer(SimpleTrainer):
             model = DistributedDataParallel(
                 model, device_ids=[comm.get_local_rank()],
                 broadcast_buffers=False,
-                find_unused_parameters=True
+                find_unused_parameters=False
             )
         super().__init__(model, data_loader, optimizer)
 
@@ -286,6 +285,7 @@ class DefaultTrainer(SimpleTrainer):
             optimizer=optimizer,
             scheduler=self.scheduler,
         )
+        
         self.start_iter = 0
         self.max_iter = cfg.SOLVER.MAX_ITER
         self.cfg = cfg
@@ -344,17 +344,23 @@ class DefaultTrainer(SimpleTrainer):
         if comm.is_main_process():
             ret.append(hooks.PeriodicCheckpointer(self.checkpointer, cfg.SOLVER.CHECKPOINT_PERIOD))
 
-        def test_and_save_results():
-            self._last_eval_results = self.test(self.cfg, self.model)
-            return self._last_eval_results
-
-        # Do evaluation after checkpointer, because then if it fails,
-        # we can use the saved checkpoint to debug.
-        ret.append(hooks.EvalHook(cfg.TEST.EVAL_PERIOD, test_and_save_results))
-
+        ret = self.merge_hooks(ret)
+        
         if comm.is_main_process():
             # run writers in the end, so that evaluation metrics are written
             ret.append(hooks.PeriodicWriter(self.build_writers()))
+        return ret
+
+
+    def merge_hooks(self, ret):
+        # Update Iters
+        if self.cfg.MERGE.EXPAND:
+            ret.append(hook.IterHook())
+            
+        def test_and_save_results():
+            self._last_eval_results = self.test(self.cfg, self.model)
+            return self._last_eval_results
+        ret.append(hook.EvalHook(self.cfg.TEST.EVAL_PERIOD, test_and_save_results, logger=self.logger))
         return ret
 
     def build_writers(self):

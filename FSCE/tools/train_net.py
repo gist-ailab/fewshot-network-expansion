@@ -1,4 +1,3 @@
-# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
 """
 Detection Training Script.
 
@@ -16,17 +15,13 @@ You may want to write your own script with your datasets and other customization
 """
 
 import os
-
 import fsdet.utils.comm as comm
 from fsdet.checkpoint import DetectionCheckpointer
+from fsdet.data import MetadataCatalog
+from fsdet.engine import launch
+
 from fsdet.config import get_cfg, set_global_cfg
-from fsdet.data import MetadataCatalog, build_detection_train_loader
-from fsdet.engine import (
-    DefaultTrainer,
-    default_argument_parser,
-    default_setup,
-    launch,
-)
+from fsdet.engine import DefaultTrainer, default_argument_parser, default_setup, hooks
 from fsdet.evaluation import (
     COCOEvaluator,
     DatasetEvaluators,
@@ -35,8 +30,9 @@ from fsdet.evaluation import (
     verify_results,
 )
 
-# from fsdet.data.dataset_mapper import AlbumentationMapper
-
+from fvcore.nn.precise_bn import get_bn_modules, update_bn_stats
+import neptune.new as neptune
+import aux_layers
 
 class Trainer(DefaultTrainer):
     """
@@ -45,6 +41,9 @@ class Trainer(DefaultTrainer):
     are working on a new research project. In that case you can use the cleaner
     "SimpleTrainer", or write your own training loop.
     """
+    def __init__(self, cfg, logger):
+        self.logger = logger
+        super(Trainer, self).__init__(cfg)
 
     @classmethod
     def build_evaluator(cls, cfg, dataset_name, output_folder=None):
@@ -59,7 +58,9 @@ class Trainer(DefaultTrainer):
         evaluator_list = []
         evaluator_type = MetadataCatalog.get(dataset_name).evaluator_type
         if evaluator_type == "coco":
-            evaluator_list.append(COCOEvaluator(dataset_name, cfg, True, output_folder))
+            evaluator_list.append(
+                COCOEvaluator(dataset_name, cfg, True, output_folder)
+            )
         if evaluator_type == "pascal_voc":
             return PascalVOCDetectionEvaluator(dataset_name)
         if evaluator_type == "lvis":
@@ -73,22 +74,15 @@ class Trainer(DefaultTrainer):
         if len(evaluator_list) == 1:
             return evaluator_list[0]
         return DatasetEvaluators(evaluator_list)
-
-    @classmethod
-    def build_train_loader(cls, cfg):
-        mapper = None
-        # if cfg.INPUT.USE_ALBUMENTATIONS:
-        #     mapper = AlbumentationMapper(cfg, is_train=True)
-        return build_detection_train_loader(cfg, mapper=mapper)
-
+    
 def setup(args):
     """
     Create configs and perform basic setups.
     """
     cfg = get_cfg()
     cfg.merge_from_file(args.config_file)
-    cfg.merge_from_list(args.opts)
-    cfg.freeze()
+    if args.opts:
+        cfg.merge_from_list(args.opts)
     set_global_cfg(cfg)
     default_setup(cfg, args)
     return cfg
@@ -111,13 +105,37 @@ def main(args):
     If you'd like to do anything fancier than the standard training logic,
     consider writing your own training loop or subclassing the trainer.
     """
-    trainer = Trainer(cfg)
+    
+    # Logger
+    token = 'eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiI5MTQ3MjY2Yy03YmM4LTRkOGYtOWYxYy0zOTk3MWI0ZDY3M2MifQ=='
+
+    mode = 'async'
+    monitor_hardware = True
+    
+    run = neptune.init('sunghoshin/module-merge', api_token=token,
+                    capture_stdout=monitor_hardware,
+                    capture_stderr=monitor_hardware,
+                    capture_hardware_metrics=monitor_hardware,
+                    mode=mode
+                    )
+    neptune_id = str(run.__dict__['_short_id'])
+    
+    run['exp_name'] = args.exp_name
+    run['cfg'] = cfg
+    # run['seed'] = args.seed
+    # run['id'] = neptune_id
+    
+    # Trainer
+    trainer = Trainer(cfg, run)
     trainer.resume_or_load(resume=args.resume)
     return trainer.train()
 
 
 if __name__ == "__main__":
     args = default_argument_parser().parse_args()
+    args.num_gpus = len(args.gpus.split(','))
+    os.environ["CUDA_VISIBLE_DEVICES"] = args.gpus
+    
     print("Command Line Args:", args)
     launch(
         main,

@@ -38,6 +38,17 @@ _C.MODEL.PIXEL_MEAN = [103.530, 116.280, 123.675]
 _C.MODEL.PIXEL_STD = [1.0, 1.0, 1.0]
 
 
+
+# Merge PARAMS
+_C.MERGE = CN()
+_C.MERGE.EXPAND = False
+_C.MERGE.PROPOSAL_LIST = []
+_C.MERGE.BACKBONE_NAME = 'resnet18_fpn'
+
+_C.DATASET = ''
+_C.METHOD = ''
+
+
 # -----------------------------------------------------------------------------
 # INPUT
 # -----------------------------------------------------------------------------

@@ -3,7 +3,7 @@ import itertools
 from typing import Any, Dict, List, Tuple, Union
 import torch
 
-from fsdet.layers import cat
+from detectron2.layers import cat
 
 
 class Instances:

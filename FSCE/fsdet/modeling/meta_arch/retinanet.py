@@ -6,7 +6,7 @@ import torch
 from fvcore.nn import sigmoid_focal_loss_jit, smooth_l1_loss
 from torch import nn
 
-from fsdet.layers import ShapeSpec, batched_nms, cat
+from detectron2.layers import ShapeSpec, batched_nms, cat
 from fsdet.structures import Boxes, ImageList, Instances, pairwise_iou
 from fsdet.utils.logger import log_first_n
 

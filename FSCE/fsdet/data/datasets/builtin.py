@@ -3,18 +3,18 @@
 
 
 """
-This file registers pre-defined datasets at hard-coded paths, and their metadata.
+This file registers pre-defined ../database at hard-coded paths, and their metadata.
 
-We hard-code metadata for common datasets. This will enable:
-1. Consistency check when loading the datasets
-2. Use models on these standard datasets directly and run demos,
+We hard-code metadata for common ../database. This will enable:
+1. Consistency check when loading the ../database
+2. Use models on these standard ../database directly and run demos,
    without having to download the dataset annotations
 
 We hard-code some paths to the dataset that's assumed to
-exist in "./datasets/".
+exist in "./../database/".
 
 Users SHOULD NOT use this file to create new dataset / metadata for new dataset.
-To add new dataset, refer to the tutorial "docs/DATASETS.md".
+To add new dataset, refer to the tutorial "docs/../database.md".
 """
 
 import os
@@ -29,7 +29,7 @@ from .meta_pascal_voc import register_meta_pascal_voc
 from .builtin_meta import _get_builtin_metadata
 
 
-# ==== Predefined datasets and splits for COCO ==========
+# ==== Predefined ../database and splits for COCO ==========
 
 _PREDEFINED_SPLITS_COCO = {}
 _PREDEFINED_SPLITS_COCO["coco"] = {
@@ -49,10 +49,10 @@ _PREDEFINED_SPLITS_COCO["coco"] = {
 }
 
 
-def register_all_coco(root="datasets"):
+def register_all_coco(root="../database"):
     for dataset_name, splits_per_dataset in _PREDEFINED_SPLITS_COCO.items():
         for key, (image_root, json_file) in splits_per_dataset.items():
-            # Assume pre-defined datasets live in `./datasets`.
+            # Assume pre-defined ../database live in `./../database`.
             register_coco_instances(
                 key,
                 _get_builtin_metadata(dataset_name),
@@ -60,7 +60,7 @@ def register_all_coco(root="datasets"):
                 os.path.join(root, image_root),
             )
 
-    # register meta datasets
+    # register meta ../database
     METASPLITS = [
         ("coco_trainval_all", "coco/trainval2014", "cocosplit/datasplit/trainvalno5k.json"),
         ("coco_trainval_base", "coco/trainval2014", "cocosplit/datasplit/trainvalno5k.json"),
@@ -69,7 +69,7 @@ def register_all_coco(root="datasets"):
         ("coco_test_novel", "coco/val2014", "cocosplit/datasplit/5k.json"),
     ]
 
-    # register small meta datasets for fine-tuning stage
+    # register small meta ../database for fine-tuning stage
     for prefix in ["all", "novel"]:
         for shot in [1, 2, 3, 5, 10, 30]:
             for seed in range(10):
@@ -86,7 +86,7 @@ def register_all_coco(root="datasets"):
         )
 
 
-# ==== Predefined datasets and splits for LVIS ==========
+# ==== Predefined ../database and splits for LVIS ==========
 
 _PREDEFINED_SPLITS_LVIS = {
     "lvis_v0.5": {
@@ -101,10 +101,10 @@ _PREDEFINED_SPLITS_LVIS = {
 }
 
 
-def register_all_lvis(root="datasets"):
+def register_all_lvis(root="../database"):
     for dataset_name, splits_per_dataset in _PREDEFINED_SPLITS_LVIS.items():
         for key, (image_root, json_file) in splits_per_dataset.items():
-            # Assume pre-defined datasets live in `./datasets`.
+            # Assume pre-defined ../database live in `./../database`.
             register_lvis_instances(
                 key,
                 _get_builtin_metadata(dataset_name),
@@ -112,7 +112,7 @@ def register_all_lvis(root="datasets"):
                 os.path.join(root, image_root),
             )
 
-    # register meta datasets
+    # register meta ../database
     METASPLITS = [
         ("lvis_v0.5_train_shots", "coco/train2017", "lvissplit/lvis_shots.json"),
         ("lvis_v0.5_train_rare_novel", "coco/train2017", "lvis/lvis_v0.5_train_rare.json"),
@@ -130,7 +130,7 @@ def register_all_lvis(root="datasets"):
 
 
 # ==== Predefined splits for PASCAL VOC ===========
-def register_all_pascal_voc(root="datasets"):
+def register_all_pascal_voc(root="../database"):
     SPLITS = [
         ("voc_2007_trainval", "VOC2007", "trainval"),
         ("voc_2007_train", "VOC2007", "train"),
@@ -145,7 +145,7 @@ def register_all_pascal_voc(root="datasets"):
         register_pascal_voc(name, os.path.join(root, dirname), split, year)
         MetadataCatalog.get(name).evaluator_type = "pascal_voc"
 
-    # register meta datasets
+    # register meta ../database
     METASPLITS = [
         ("voc_2007_trainval_base1", "VOC2007", "trainval", "base1", 1),
         ("voc_2007_trainval_base2", "VOC2007", "trainval", "base2", 2),
@@ -170,7 +170,7 @@ def register_all_pascal_voc(root="datasets"):
         ("voc_2007_test_all3", "VOC2007", "test", "base_novel_3", 3),
     ]
 
-    # register small meta datasets for fine-tuning stage
+    # register small meta ../database for fine-tuning stage
     for prefix in ["all", "novel"]:
         for sid in range(1, 4):
             for shot in [1, 2, 3, 5, 10]:
@@ -226,7 +226,7 @@ def register_all_pascal_voc(root="datasets"):
                                  keepclasses, sid)
         MetadataCatalog.get(name).evaluator_type = "pascal_voc"
 
-# Register them all under "./datasets"
+# Register them all under "./../database"
 register_all_coco()
 register_all_lvis()
 register_all_pascal_voc()

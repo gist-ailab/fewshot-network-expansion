@@ -15,7 +15,6 @@ You may want to write your own script with your datasets and other customization
 """
 
 import os
-
 import detectron2.utils.comm as comm
 from detectron2.checkpoint import DetectionCheckpointer
 from detectron2.data import MetadataCatalog
@@ -33,6 +32,7 @@ from fsdet.evaluation import (
 
 from fvcore.nn.precise_bn import get_bn_modules, update_bn_stats
 import neptune.new as neptune
+import aux_layers
 
 class Trainer(DefaultTrainer):
     """

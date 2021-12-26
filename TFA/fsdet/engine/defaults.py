@@ -10,7 +10,7 @@ import argparse
 import logging
 import os
 from collections import OrderedDict
-
+import random
 import detectron2.data.transforms as T
 import torch
 from detectron2.data import (
@@ -120,7 +120,7 @@ def default_argument_parser():
     # PyTorch still may leave orphan processes in multi-gpu training.
     # Therefore we use a deterministic way to obtain port,
     # so that users are aware of orphan processes by seeing the port occupied.
-    port = 2 ** 15 + 2 ** 14 + hash(os.getuid()) % 2 ** 14
+    port = str(random.randint(100,10000))
     parser.add_argument(
         "--dist-url", default="tcp://127.0.0.1:{}".format(port)
     )

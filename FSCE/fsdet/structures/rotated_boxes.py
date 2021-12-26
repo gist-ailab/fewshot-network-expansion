@@ -3,8 +3,8 @@ import math
 from typing import Iterator, List, Union
 import torch
 
-from fsdet.layers import cat
-from fsdet.layers.rotated_boxes import pairwise_iou_rotated
+from detectron2.layers import cat
+from detectron2.layers.rotated_boxes import pairwise_iou_rotated
 
 from .boxes import Boxes
 

@@ -5,7 +5,7 @@ import torch
 from torch import nn
 from torchvision.ops import RoIPool
 
-from fsdet.layers import ROIAlign, ROIAlignRotated, cat
+from detectron2.layers import ROIAlign, ROIAlignRotated, cat
 
 __all__ = ["ROIPooler"]
 

@@ -5,7 +5,7 @@ from enum import Enum, unique
 from typing import Iterator, List, Tuple, Union
 import torch
 
-from fsdet.layers import cat
+from detectron2.layers import cat
 
 _RawBoxType = Union[List[float], Tuple[float, ...], torch.Tensor, np.ndarray]
 

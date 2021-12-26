@@ -23,7 +23,7 @@ import json
 import numpy as np
 from collections import OrderedDict
 
-import fsdet.utils.comm as comm
+import detectron2.utils.comm as comm
 from fsdet.checkpoint import DetectionCheckpointer
 from fsdet.config import get_cfg, set_global_cfg
 from fsdet.data import MetadataCatalog

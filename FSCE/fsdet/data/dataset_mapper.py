@@ -5,6 +5,8 @@ import numpy as np
 import torch
 
 import json
+import matplotlib
+matplotlib.use('Agg')
 import albumentations as A
 from fsdet.structures import BoxMode
 

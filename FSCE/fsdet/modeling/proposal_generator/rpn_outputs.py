@@ -6,7 +6,7 @@ import torch
 import torch.nn.functional as F
 from fvcore.nn import smooth_l1_loss
 
-from fsdet.layers import batched_nms, cat
+from detectron2.layers import batched_nms, cat
 from fsdet.structures import Boxes, Instances, pairwise_iou
 from fsdet.utils.events import get_event_storage
 

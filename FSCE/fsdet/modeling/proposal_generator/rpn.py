@@ -4,7 +4,7 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
-from fsdet.layers import ShapeSpec
+from detectron2.layers import ShapeSpec
 from fsdet.utils.registry import Registry
 
 from ..anchor_generator import build_anchor_generator
@@ -145,6 +145,7 @@ class RPN(nn.Module):
         # pred_anchor_deltas: list of L tensor of shape [N, A*B, Hi, Wi]
         pred_objectness_logits, pred_anchor_deltas = self.rpn_head(features)
         anchors = self.anchor_generator(features)
+        
         # TODO: The anchors only depend on the feature map shape; there's probably
         # an opportunity for some optimizations (e.g., caching anchors).
         outputs = RPNOutputs(
@@ -190,6 +191,55 @@ class RPN(nn.Module):
             # 所以再以后用到的其实并不是按照 objectness 倒序排列的。
             inds = [p.objectness_logits.sort(descending=True)[1] for p in proposals]
             proposals = [p[ind] for p, ind in zip(proposals, inds)]
+        return proposals, losses
 
+    def predict_proposals(self, anchors, pred_objectness_logits, pred_anchor_deltas, images, gt_instances, training):
+        self.training = training
+        
+        gt_boxes = [x.gt_boxes for x in gt_instances] if gt_instances is not None else None
+        del gt_instances
+        
+        outputs = RPNOutputs(
+            self.box2box_transform,
+            self.anchor_matcher,
+            self.batch_size_per_image,
+            self.positive_fraction,
+            images,
+            pred_objectness_logits,
+            pred_anchor_deltas,
+            anchors,
+            self.boundary_threshold,
+            gt_boxes,
+            self.smooth_l1_beta,
+        )
 
+        if self.training and not self.cl_head_only:
+            losses = {k: v * self.loss_weight for k, v in outputs.losses().items()}
+        else:
+            losses = {}
+
+        with torch.no_grad():
+            # Find the top proposals by applying NMS and removing boxes that
+            # are too small. The proposals are treated as fixed for approximate
+            # joint training with roi heads. This approach ignores the derivative
+            # w.r.t. the proposal boxes’ coordinates that are also network
+            # responses, so is approximate.
+            proposals = find_top_rpn_proposals(
+                outputs.predict_proposals(),  # transform anchors to proposals by applying delta
+                outputs.predict_objectness_logits(),
+                images,
+                self.nms_thresh,
+                self.pre_nms_topk[self.training],
+                self.post_nms_topk[self.training],
+                self.min_box_side_len,
+                self.training,
+            )
+            # For RPN-only models, the proposals are the final output and we return them in
+            # high-to-low confidence order.
+            # For end-to-end models, the RPN proposals are an intermediate state
+            # and this sorting is actually not needed. But the cost is negligible.
+            # 但是要注意，end-to-end models 在后面进入 RoI 的 proposals 实际上会在 label_and_sample_proposals 再次被打乱，
+            # 所以再以后用到的其实并不是按照 objectness 倒序排列的。
+            inds = [p.objectness_logits.sort(descending=True)[1] for p in proposals]
+            proposals = [p[ind] for p, ind in zip(proposals, inds)]
         return proposals, losses

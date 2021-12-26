@@ -48,7 +48,7 @@ base_classes = [c for c in range(1230) if c not in novel_classes]
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--data', type=str,
-                        default="datasets/lvis/lvis_v0.5_train.json",
+                        default="../database/lvis/lvis_v0.5_train.json",
                         help='path to the annotation file')
     parser.add_argument('--shots', type=int, default=10,
                         help='number of shots')
@@ -80,7 +80,7 @@ def get_shots(args):
         'annotations': anno,
     }
 
-    save_path = os.path.join('datasets/lvissplit', 'lvis_shots.json')
+    save_path = os.path.join('../database/lvissplit', 'lvis_shots.json')
     with open(save_path, 'w') as f:
         json.dump(new_data, f)
 

@@ -6,10 +6,10 @@ import os
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--data', type=str,
-                        default="datasets/lvis/lvis_v0.5_train.json",
+                        default="../database/lvis/lvis_v0.5_train.json",
                         help='path to the annotation file')
     parser.add_argument('--save-dir', type=str,
-                        default="datasets/lvis",
+                        default="../database/lvis",
                         help='path to the save directory')
     args = parser.parse_args()
     return args

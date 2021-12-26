@@ -11,7 +11,7 @@ import torch.utils.model_zoo as model_zoo
 from torch.utils.model_zoo import load_url as load_state_dict_from_url
 from .backbone import Backbone
 from .build import BACKBONE_REGISTRY
-from fsdet.layers import  ShapeSpec
+from detectron2.layers import  ShapeSpec
 
 
 __all__ = []

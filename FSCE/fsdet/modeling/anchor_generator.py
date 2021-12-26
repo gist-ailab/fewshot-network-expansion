@@ -5,7 +5,7 @@ from typing import List
 import torch
 from torch import nn
 
-from fsdet.layers import ShapeSpec
+from detectron2.layers import ShapeSpec
 from fsdet.structures import Boxes, RotatedBoxes
 from fsdet.utils.registry import Registry
 

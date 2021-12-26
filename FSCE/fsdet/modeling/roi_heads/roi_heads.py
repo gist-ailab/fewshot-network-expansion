@@ -6,7 +6,7 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 
-from fsdet.layers import ShapeSpec
+from detectron2.layers import ShapeSpec
 from fsdet.structures import Boxes, Instances, pairwise_iou
 from fsdet.utils.events import get_event_storage
 from fsdet.utils.registry import Registry
@@ -37,7 +37,7 @@ from ..contrastive_loss import (
     SupConLossWithPrototype,
     SupConLossWithStorage
 )
-from fsdet.layers import cat
+from detectron2.layers import cat
 
 ROI_HEADS_REGISTRY = Registry("ROI_HEADS")
 ROI_HEADS_REGISTRY.__doc__ = """

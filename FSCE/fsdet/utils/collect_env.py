@@ -35,7 +35,7 @@ def collect_env_info():
     data.append(("Python", sys.version.replace("\n", "")))
     data.append(("Numpy", np.__version__))
     try:
-        from fsdet import _C
+        from detectron2 import _C
     except ImportError:
         data.append(("fsdet._C", "failed to import"))
     else:

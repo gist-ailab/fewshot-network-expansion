@@ -34,7 +34,7 @@ def load_coco_json(json_file, image_root, metadata, dataset_name):
 
     Returns:
         list[dict]: a list of dicts in Detectron2 standard format. (See
-        `Using Custom Datasets </tutorials/datasets.html>`_ )
+        `Using Custom ../database </tutorials/../database.html>`_ )
 
     Notes:
         1. This function does not read the image files.
@@ -43,7 +43,7 @@ def load_coco_json(json_file, image_root, metadata, dataset_name):
     is_shots = 'shot' in dataset_name
     if is_shots:
         fileids = {}
-        split_dir = os.path.join('datasets', 'cocosplit')
+        split_dir = os.path.join('../database', 'cocosplit')
         if 'seed' in dataset_name:
             shot = dataset_name.split('_')[-2].split('shot')[0]
             seed = int(dataset_name.split('_seed')[-1])
@@ -136,5 +136,5 @@ def register_meta_coco(name, metadata, imgdir, annofile):
 
     MetadataCatalog.get(name).set(
         json_file=annofile, image_root=imgdir, evaluator_type="coco",
-        dirname="datasets/coco", **metadata,
+        dirname="../database/coco", **metadata,
     )

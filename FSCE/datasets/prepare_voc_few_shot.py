@@ -25,13 +25,13 @@ def generate_seeds(args):
     data = []
     data_per_cat = {c: [] for c in VOC_CLASSES}
     for year in [2007, 2012]:
-        data_file = 'datasets/VOC{}/ImageSets/Main/trainval.txt'.format(year)
+        data_file = '../database/VOC{}/ImageSets/Main/trainval.txt'.format(year)
         with PathManager.open(data_file) as f:
             fileids = np.loadtxt(f, dtype=np.str).tolist()
         data.extend(fileids)
     for fileid in data:
         year = "2012" if "_" in fileid else "2007"
-        dirname = os.path.join("datasets", "VOC{}".format(year))
+        dirname = os.path.join("../database", "VOC{}".format(year))
         anno_file = os.path.join(dirname, "Annotations", fileid + ".xml")
         tree = ET.parse(anno_file)
         clses = []
@@ -56,7 +56,7 @@ def generate_seeds(args):
                         tree = ET.parse(s)
                         file = tree.find("filename").text
                         year = tree.find("folder").text
-                        name = 'datasets/{}/JPEGImages/{}'.format(year, file)
+                        name = '../database/{}/JPEGImages/{}'.format(year, file)
                         c_data.append(name)
                         for obj in tree.findall("object"):
                             if obj.find("name").text == c:
@@ -64,7 +64,7 @@ def generate_seeds(args):
                         if num_objs >= diff_shot:
                             break
                 result[c][shot] = copy.deepcopy(c_data)
-        save_path = 'datasets/vocsplit/seed{}'.format(i)
+        save_path = '../database/vocsplit/seed{}'.format(i)
         os.makedirs(save_path, exist_ok=True)
         for c in result.keys():
             for shot in result[c].keys():
