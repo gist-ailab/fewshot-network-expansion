@@ -1,6 +1,6 @@
 _BASE_: "../../Base-RCNN-FPN.yaml"
 MODEL:
-  WEIGHTS: "checkpoints/voc/faster_rcnn/faster_rcnn_R_101_FPN_base1/model_reset_surgery.pth"
+  WEIGHTS: "/data/sung/checkpoint/few_shot/voc/split1/base_model/model_reset_surgery.pth"
   MASK_ON: False
   RESNETS:
     DEPTH: 101
@@ -25,4 +25,6 @@ SOLVER:
   MAX_ITER: 8000
   CHECKPOINT_PERIOD: 500
   WARMUP_ITERS: 0
-OUTPUT_DIR: "checkpoints/voc/faster_rcnn/faster_rcnn_R_101_FPN_ft_normalized_all1_2shot_randnovel"
+DATASET: "VOC1"
+METHOD: "FSDET"
+OUTPUT_DIR: "checkpoints/voc/faster_rcnn_R_101_FPN_ft_all1_2shot"

@@ -1,11 +1,12 @@
 _BASE_: "../../Base-RCNN-FPN.yaml"
 MODEL:
-  WEIGHTS: "checkpoints/voc/faster_rcnn/faster_rcnn_R_101_FPN_base1/model_reset_surgery.pth"
+  WEIGHTS: "/data/sung/checkpoint/few_shot/voc/split1/base_model/model_reset_surgery.pth"
   MASK_ON: False
   RESNETS:
     DEPTH: 101
   ROI_HEADS:
     NUM_CLASSES: 20
+    OUTPUT_LAYER: "CosineSimOutputLayers"
     FREEZE_FEAT: True
   BACKBONE:
     FREEZE: True
@@ -22,6 +23,14 @@ SOLVER:
   BASE_LR: 0.001
   STEPS: (7000,)
   MAX_ITER: 8000
-  CHECKPOINT_PERIOD: 10000
-  WARMUP_ITERS: 0
-OUTPUT_DIR: "checkpoints/voc/faster_rcnn/faster_rcnn_R_101_FPN_ft_fc_all1_2shot_randnovel"
+  CHECKPOINT_PERIOD: 1000
+  WARMUP_ITERS: 200
+TEST:
+  EVAL_PERIOD: 1000
+MERGE:
+  EXPAND: True
+  PROPOSAL_LIST: ['novel', 'base']
+  BACKBONE_NAME: 'resnet18_fpn'
+DATASET: "VOC1"
+METHOD: "FSDET"
+OUTPUT_DIR: "checkpoints/voc/faster_rcnn_R_101_FPN_ft_all1_2shot_merge"

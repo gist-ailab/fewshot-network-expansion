@@ -6,6 +6,7 @@ MODEL:
     DEPTH: 101
   ROI_HEADS:
     NUM_CLASSES: 20
+    OUTPUT_LAYER: "CosineSimOutputLayers"
     FREEZE_FEAT: True
   BACKBONE:
     FREEZE: True
@@ -20,14 +21,16 @@ DATASETS:
 SOLVER:
   IMS_PER_BATCH: 16
   BASE_LR: 0.001
-  STEPS: (35000,)
+  STEPS: (36000, )
   MAX_ITER: 40000
-  CHECKPOINT_PERIOD: 50000
+  CHECKPOINT_PERIOD: 5000
   WARMUP_ITERS: 500
+TEST:
+  EVAL_PERIOD: 5000
 MERGE:
   EXPAND: True
   PROPOSAL_LIST: ['novel', 'base']
   BACKBONE_NAME: 'resnet18_fpn'
-TEST:
-  EVAL_PERIOD: 5000
-OUTPUT_DIR: "checkpoints/voc/faster_rcnn/faster_rcnn_R_101_FPN_ft_fc_all1_10shot_randnovel_merge"
+DATASET: "VOC1"
+METHOD: "FSDET"
+OUTPUT_DIR: "checkpoints/voc/faster_rcnn_R_101_FPN_ft_all1_10shot_merge"
