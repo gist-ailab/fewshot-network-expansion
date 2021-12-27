@@ -20,6 +20,7 @@ from defrcn.checkpoint import DetectionCheckpointer
 from defrcn.solver import build_lr_scheduler, build_optimizer
 from defrcn.evaluation import DatasetEvaluator, inference_on_dataset, print_csv_format, verify_results
 from defrcn.dataloader import MetadataCatalog, build_detection_test_loader, build_detection_train_loader
+from aux_layers import hook
 
 
 __all__ = [
@@ -54,8 +55,10 @@ def default_argument_parser():
                         help="starting iteration for evaluation")
     parser.add_argument("--end-iter", type=int, default=-1,
                         help="ending iteration for evaluation")
-    parser.add_argument("--num-gpus", type=int, default=1,
+    parser.add_argument("--gpus", type=str, default='0,1',
                         help="number of gpus *per machine*")
+    parser.add_argument("--exp_name", type=str, default='DeFRCN',
+                        help="experiment name")
     parser.add_argument("--num-machines", type=int, default=1)
     parser.add_argument("--machine-rank", type=int, default=0,
                         help="the rank of this machine")
@@ -63,7 +66,8 @@ def default_argument_parser():
     # PyTorch still may leave orphan processes in multi-gpu training.
     # Therefore we use a deterministic way to obtain port,
     # so that users are aware of orphan processes by seeing the port occupied.
-    port = 2 ** 15 + 2 ** 14 + hash(os.getuid()) % 2 ** 14
+    import random
+    port = random.randint(10, 10000)
     parser.add_argument("--dist-url", default="tcp://127.0.0.1:{}".format(port))
     parser.add_argument("--opts", default=None, nargs=argparse.REMAINDER,
                         help="Modify config options using the command-line")
@@ -331,18 +335,23 @@ class DefaultTrainer(SimpleTrainer):
                 )
             )
 
-        def test_and_save_results():
-            self._last_eval_results = self.test(self.cfg, self.model)
-            return self._last_eval_results
-
-        # Do evaluation after checkpointer, because then if it fails,
-        # we can use the saved checkpoint to debug.
-        ret.append(EvalHookDeFRCN(
-            cfg.TEST.EVAL_PERIOD, test_and_save_results, self.cfg))
-
+        ret = self.merge_hooks(ret)
+        
         if comm.is_main_process():
             # run writers in the end, so that evaluation metrics are written
             ret.append(hooks.PeriodicWriter(self.build_writers()))
+        return ret
+
+
+    def merge_hooks(self, ret):
+        # Update Iters
+        if self.cfg.MERGE.EXPAND:
+            ret.append(hook.IterHook())
+            
+        def test_and_save_results():
+            self._last_eval_results = self.test(self.cfg, self.model)
+            return self._last_eval_results
+        ret.append(hook.EvalHook(self.cfg.TEST.EVAL_PERIOD, test_and_save_results, logger=self.logger))
         return ret
 
     def build_writers(self):

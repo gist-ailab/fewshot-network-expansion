@@ -6,8 +6,7 @@ from detectron2.checkpoint import DetectionCheckpointer
 from defrcn.config import get_cfg, set_global_cfg
 from defrcn.evaluation import DatasetEvaluators, verify_results
 from defrcn.engine import DefaultTrainer, default_argument_parser, default_setup
-
-
+import neptune.new as neptune
 class Trainer(DefaultTrainer):
 
     @classmethod
@@ -57,6 +56,24 @@ def main(args):
             verify_results(cfg, res)
         return res
 
+    # Logger
+    token = 'eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiI5MTQ3MjY2Yy03YmM4LTRkOGYtOWYxYy0zOTk3MWI0ZDY3M2MifQ=='
+
+    mode = 'async'
+    monitor_hardware = True
+    
+    run = neptune.init('sunghoshin/module-merge', api_token=token,
+                    capture_stdout=monitor_hardware,
+                    capture_stderr=monitor_hardware,
+                    capture_hardware_metrics=monitor_hardware,
+                    mode=mode
+                    )
+    neptune_id = str(run.__dict__['_short_id'])
+    
+    run['exp_name'] = args.exp_name
+    run['cfg'] = cfg
+    
+    # Trainer
     trainer = Trainer(cfg)
     trainer.resume_or_load(resume=args.resume)
     return trainer.train()

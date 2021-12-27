@@ -17,7 +17,7 @@ def load_coco_json(json_file, image_root, metadata, dataset_name):
         imgid2info = {}
         shot = dataset_name.split('_')[-2].split('shot')[0]
         seed = int(dataset_name.split('_seed')[-1])
-        split_dir = os.path.join('datasets', 'cocosplit', 'seed{}'.format(seed))
+        split_dir = os.path.join('../database', 'cocosplit', 'seed{}'.format(seed))
         for idx, cls in enumerate(metadata["thing_classes"]):
             json_file = os.path.join(split_dir, "full_box_{}shot_{}_trainval.json".format(shot, cls))
             json_file = PathManager.get_local_path(json_file)
@@ -92,6 +92,6 @@ def register_meta_coco(name, metadata, imgdir, annofile):
         json_file=annofile,
         image_root=imgdir,
         evaluator_type="coco",
-        dirname="datasets/coco",
+        dirname="../database/coco",
         **metadata,
     )

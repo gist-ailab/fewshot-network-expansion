@@ -6,7 +6,7 @@ from detectron2.data import DatasetCatalog, MetadataCatalog
 
 
 # -------- COCO -------- #
-def register_all_coco(root="datasets"):
+def register_all_coco(root="../database"):
 
     METASPLITS = [
         ("coco14_trainval_all", "coco/trainval2014", "cocosplit/datasplit/trainvalno5k.json"),
@@ -31,7 +31,7 @@ def register_all_coco(root="datasets"):
 
 
 # -------- PASCAL VOC -------- #
-def register_all_voc(root="datasets"):
+def register_all_voc(root="../database"):
 
     METASPLITS = [
         ("voc_2007_trainval_base1", "VOC2007", "trainval", "base1", 1),

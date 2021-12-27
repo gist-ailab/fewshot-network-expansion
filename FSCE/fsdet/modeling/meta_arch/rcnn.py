@@ -100,12 +100,11 @@ class GeneralizedRCNN(nn.Module):
             
             cfg_copy = self.cfg.clone()
             cfg_copy.MODEL.PROPOSAL_GENERATOR.NAME = "Merge_RPN"
-            self.proposal_generator = None
-            self.proposal_generator_base = build_proposal_generator(cfg_copy, self.backbone.output_shape())
+            self.proposal_generator = build_proposal_generator(cfg_copy, self.backbone.output_shape())
             self.proposal_generator_novel = build_proposal_generator(cfg_copy, self.backbone.output_shape())
                     
             if self.cfg.MODEL.PROPOSAL_GENERATOR.FREEZE:
-                for p in self.proposal_generator_base.parameters():
+                for p in self.proposal_generator.parameters():
                     p.requires_grad = False
                 print("froze proposal generator parameters")
                 
@@ -187,12 +186,12 @@ class GeneralizedRCNN(nn.Module):
             features = self.backbone(images.tensor)
 
         # RPN forward
-        if self.proposal_generator or self.proposal_generator_base or self.proposal_generator_novel:
+        if self.proposal_generator or self.proposal_generator_novel:
             if self.cfg.MERGE.EXPAND:
                 if ('base' in self.cfg.MERGE.PROPOSAL_LIST) and ('novel' in self.cfg.MERGE.PROPOSAL_LIST):
-                    base_anchors, base_objectness, base_deltas = self.proposal_generator_base(images, features_b, gt_instances)
+                    base_anchors, base_objectness, base_deltas = self.proposal_generator(images, features_b, gt_instances)
                     novel_anchors, novel_objectness, novel_deltas = self.proposal_generator_novel(images, features, gt_instances)
-                    proposals, proposal_losses = merge_proposals(self.proposal_generator_base, images, gt_instances, [base_anchors, novel_anchors], [base_objectness, novel_objectness], [base_deltas, novel_deltas], train=True)
+                    proposals, proposal_losses = merge_proposals(self.proposal_generator, images, gt_instances, [base_anchors, novel_anchors], [base_objectness, novel_objectness], [base_deltas, novel_deltas], train=True)
                 elif 'novel' in self.cfg.MERGE.PROPOSAL_LIST:
                     proposals, proposal_losses = self.proposal_generator(images, features, gt_instances)
                 
@@ -270,12 +269,12 @@ class GeneralizedRCNN(nn.Module):
             
         if detected_instances is None:
             # RPN forward
-            if self.proposal_generator or self.proposal_generator_base or self.proposal_generator_novel:
+            if self.proposal_generator or self.proposal_generator_novel:
                 if self.cfg.MERGE.EXPAND:
                     if ('base' in self.cfg.MERGE.PROPOSAL_LIST) and ('novel' in self.cfg.MERGE.PROPOSAL_LIST):
-                        base_anchors, base_objectness, base_deltas = self.proposal_generator_base(images, features_b, gt_instances=None)
+                        base_anchors, base_objectness, base_deltas = self.proposal_generator(images, features_b, gt_instances=None)
                         novel_anchors, novel_objectness, novel_deltas = self.proposal_generator_novel(images, features, gt_instances=None)
-                        proposals, _ = merge_proposals(self.proposal_generator_base, images, None, [base_anchors, novel_anchors], [base_objectness, novel_objectness], [base_deltas, novel_deltas], train=False)
+                        proposals, _ = merge_proposals(self.proposal_generator, images, None, [base_anchors, novel_anchors], [base_objectness, novel_objectness], [base_deltas, novel_deltas], train=False)
                     elif 'novel' in self.cfg.MERGE.PROPOSAL_LIST:
                         proposals, _ = self.proposal_generator(images, features, gt_instances=None)
                     
