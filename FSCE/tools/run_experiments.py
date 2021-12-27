@@ -10,7 +10,7 @@ def parse_args():
     parser.add_argument('--num-gpus', type=int, default=8)
     parser.add_argument('--shots', type=int, nargs='+', default=[1, 2, 3, 5, 10],
                         help='Shots to run experiments over')
-    parser.add_argument('--seeds', type=int, nargs='+', default=[1, 20],
+    parser.add_argument('--seeds', type=int, nargs='+', default=[1, 10],
                         help='Range of seeds to run')
     parser.add_argument('--root', type=str, default='./', help='Root of data')
     parser.add_argument('--suffix', type=str, default='', help='Suffix of path')
@@ -112,6 +112,7 @@ def get_config(seed, shot):
         config_dir = 'configs/COCO-detection'
         ckpt_dir = 'checkpoints/coco/faster_rcnn'
         base_cfg = '../../Base-RCNN-FPN.yaml'
+    
     else:
         # PASCAL VOC
         assert not args.two_stage, 'Only supports random weights for PASCAL now'
@@ -135,6 +136,7 @@ def get_config(seed, shot):
     seed_str = 'seed{}'.format(seed) if seed != 0 else ''
     fc = '_fc' if args.fc else ''
     unfreeze = '_unfreeze' if args.unfreeze else ''
+
     # Read an example config file for the config parameters
     temp = os.path.join(
         temp_split, 'faster_rcnn_R_101_FPN_ft{}_{}_1shot{}'.format(
@@ -147,9 +149,11 @@ def get_config(seed, shot):
 
     output_dir = os.path.join(args.root, ckpt_dir, seed_str)
     os.makedirs(output_dir, exist_ok=True)
+
     save_dir = os.path.join(
         args.root, config_dir, split, seed_str,
     )
+
     os.makedirs(save_dir, exist_ok=True)
     save_file = os.path.join(save_dir, prefix + '.yaml')
 
@@ -173,9 +177,11 @@ def get_config(seed, shot):
                 'combine --src1 checkpoints/coco/faster_rcnn/faster_rcnn' + \
                 '_R_101_FPN_base/model_final.pth --src2 {}'.format(src2) + \
                 ' --save-dir {}'.format(os.path.join(output_dir, prefix))
+            
             run_cmd(combine_cmd)
             assert os.path.exists(ckpt_path)
         configs['MODEL']['WEIGHTS'] = ckpt_path
+    
     elif not args.coco:
         configs['MODEL']['WEIGHTS'] = configs['MODEL']['WEIGHTS'].replace(
             'base1', 'base' + str(args.split))

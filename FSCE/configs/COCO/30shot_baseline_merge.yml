@@ -2,13 +2,9 @@ _BASE_: "../../Base-RCNN-FPN.yaml"
 
 MODEL:
   MASK_ON: False
-  WEIGHTS: "/data/FSCE/checkpoints/COCO/X101/model_reset_surgery.pth"
-  PIXEL_STD: [57.375, 57.120, 58.395]  # [1,1,1] for any MSRA model
+  WEIGHTS: "/data/FSCE/checkpoints/COCO/R101/model_reset_surgery.pth"
   RESNETS:
     DEPTH: 101
-    STRIDE_IN_1X1: False  # C2 model
-    NUM_GROUPS: 32
-    WIDTH_PER_GROUP: 8
 
   BACKBONE:
     FREEZE: False
@@ -18,7 +14,6 @@ MODEL:
     FREEZE: False
   RPN:
     POST_NMS_TOPK_TRAIN: 2000
-    IOU_THRESHOLDS: [0.3, 0.6]
 
   ROI_HEADS:
     NUM_CLASSES: 80
@@ -27,15 +22,15 @@ MODEL:
     BATCH_SIZE_PER_IMAGE: 256 # do increased positive fraction help? Yes, it does.
 
 DATASETS:
-  TRAIN: ('coco_trainval_all_10shot',)
+  TRAIN: ('coco_trainval_all_30shot',)
   TEST: ('coco_test_all',)
 
 SOLVER:
   IMS_PER_BATCH: 16
   BASE_LR: 0.001
   GAMMA: 0.3
-  STEPS: (20000,)
-  MAX_ITER: 30000
+  STEPS: (30000,)
+  MAX_ITER: 40000
   CHECKPOINT_PERIOD: 10000
   WARMUP_ITERS: 200
 
@@ -44,4 +39,12 @@ TEST:
     ENABLED: True
   EVAL_PERIOD: 5000
 
-OUTPUT_DIR: "checkpoints/coco/X101/10"
+MERGE:
+  EXPAND: True
+  PROPOSAL_LIST: ['novel', 'base']
+  BACKBONE_NAME: 'resnet18_fpn'
+  
+DATASET: "COCO"
+METHOD: "FSCE"
+
+OUTPUT_DIR: "checkpoints/coco/R101/30"

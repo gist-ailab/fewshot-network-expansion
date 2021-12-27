@@ -1,0 +1,44 @@
+DATASET: COCO
+DATASETS:
+  TEST: !!python/tuple
+  - coco_test_all
+  TRAIN: !!python/tuple
+  - coco_trainval_all_10shot
+MERGE:
+  BACKBONE_NAME: resnet18_fpn
+  EXPAND: true
+  PROPOSAL_LIST:
+  - novel
+  - base
+METHOD: FSCE
+MODEL:
+  BACKBONE:
+    FREEZE: false
+    FREEZE_AT: 5
+  MASK_ON: false
+  PROPOSAL_GENERATOR:
+    FREEZE: false
+  RESNETS:
+    DEPTH: 101
+  ROI_HEADS:
+    BATCH_SIZE_PER_IMAGE: 256
+    FREEZE_FEAT: false
+    NUM_CLASSES: 80
+    OUTPUT_LAYER: CosineSimOutputLayers
+  RPN:
+    POST_NMS_TOPK_TRAIN: 2000
+  WEIGHTS: /data/sung/checkpoint/few_shot/coco/base_model/model_reset_surgery.pth
+OUTPUT_DIR: checkpoints/COCO/10shot_seed0_base
+SOLVER:
+  BASE_LR: 0.001
+  CHECKPOINT_PERIOD: 10000
+  GAMMA: 0.3
+  IMS_PER_BATCH: 16
+  MAX_ITER: 30000
+  STEPS: (20000,)
+  WARMUP_ITERS: 200
+TEST:
+  AUG:
+    ENABLED: true
+  EVAL_PERIOD: 5000
+_BASE_: Base-RCNN-FPN.yaml

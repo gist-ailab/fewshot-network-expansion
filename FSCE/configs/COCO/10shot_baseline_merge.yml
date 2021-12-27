@@ -39,4 +39,12 @@ TEST:
     ENABLED: True
   EVAL_PERIOD: 5000
 
+MERGE:
+  EXPAND: True
+  PROPOSAL_LIST: ['novel', 'base']
+  BACKBONE_NAME: 'resnet18_fpn'
+  
+DATASET: "COCO"
+METHOD: "FSCE"
+
 OUTPUT_DIR: "checkpoints/coco/R101/10"
